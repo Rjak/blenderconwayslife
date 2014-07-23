@@ -1,7 +1,7 @@
 blenderconwayslife
 ==================
 
-AddOn which generates geometry and keyframes for a Conway's Game of Life simulation in Blender. Used to create the documentary "Life": https://vimeo.com/87312053
+Python Blender AddOn which generates geometry and keyframes for a Conway's Game of Life simulation in Blender. Can also be run from the command line to quickly experiment with random seeds and size configurations and the search for interesting parts to photograph. Used to create the documentary "Life": https://vimeo.com/87312053
 
 
 INSTALLATION
