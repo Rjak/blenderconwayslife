@@ -16,6 +16,8 @@ Running from the commandline gives you a way to very quickly play with random
 seeds and sizes in order to determine what settings will produce an interesting
 simulation to photograph.
 
+Execute with: "python3 golmain.py"
+
 - The default configuration is a blender configuration, which generates geometry
 and keyframes.
 
