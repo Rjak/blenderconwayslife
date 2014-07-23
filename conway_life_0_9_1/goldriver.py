@@ -42,19 +42,19 @@ class GOLDriver(object):
             raise Exception("unsupported renderer '%r'" % rtype)
 
     def _sim_loop(self):
-        oldBirths = 0
-        oldDeaths = 0
-        frameDelay = self._renderer.get_frame_delay()
+        old_births = 0
+        old_deaths = 0
+        frame_delay = self._renderer.get_frame_delay()
 
         for i in range (0, self._generation_count):
             self._sim.advance()
             print("\ngeneration %d  -  births: %d  -  deaths: %d" % \
               (i, self._sim.births, self._sim.deaths))
-            oldBirths = self._sim.births
-            oldDeaths = self._sim.deaths
+            old_births = self._sim.births
+            old_deaths = self._sim.deaths
             self._renderer.render(self._universe)
-            if frameDelay > 0.0:
-                time.sleep(frameDelay)
+            if frame_delay > 0.0:
+                time.sleep(frame_delay)
 
         cnt = self._universe.get_transition_count()
         print("total transitions: ", cnt)
