@@ -15,19 +15,28 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-import random
+import os
+import sys
 import time
 
 from goldriver import GOLDriver
 
-#
-# Interesting Random Seeds
-#
-# 9743119 - Goes to 1200, gliders, oscillators, blooms
-# 716382 - Orig, interesting
-# 18264181563811 - Very busy up to 700, no gliders
-GOL_SEED = 12
-random.seed(GOL_SEED)
+def usage():
+    print("usage: python %s <config file>")
+    print("where:")
+    print("\tconfig file - optional config file (defaults to golconfig.cfg)")
+    sys.exit("invalid arguments")
 
-driver = GOLDriver()
+driver = None
+
+if len(sys.argv) <= 1:
+    driver = GOLDriver()
+elif len(sys.argv) == 2:
+    cfg_path = sys.argv[1]
+    if not os.path.exists(cfg_path):
+        sys.exit("config file 's' not found" % cfg_path)
+    driver = GOLDriver(cfg_path)
+else:
+    usage()
+
 driver.go()
