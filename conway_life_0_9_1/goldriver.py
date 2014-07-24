@@ -15,18 +15,23 @@ from golmodel.universe import Universe
 class GOLDriver(object):
     """Main driver class that sets up a Game Of Life simulation"""
 
-    DEFAULT_CFG_NAME = "%s%sgolconfig.cfg" % (os.path.dirname(__file__), os.sep)
+    DEFAULT_CFG_PATH = "%s%sgolconfig.cfg" % (os.path.dirname(__file__), os.sep)
     FRAME_DELAY = 0.0417    # for 24fps
 
-    def __init__(self, cfg_name = DEFAULT_CFG_NAME):
+    def __init__(self, cfg_name = DEFAULT_CFG_PATH):
         self._cfg = self._load_config(cfg_name)
+        self._preinit()
         self._generation_count = self._cfg.getint('Universe', 'GenerationCount')
         val = self._cfg.getint('Universe', 'Size')
         self._universe = Universe(val, val)
         self._sim = Simulation(self._universe)
         self._renderer = self._create_renderer() 
 
-    def _load_config(self, cfg_name = DEFAULT_CFG_NAME):
+    def _preinit(self):
+        if self._cfg.has_option('Universe', 'RandomSeed'):
+            random.seed(self._cfg.get('Universe', 'RandomSeed'))
+
+    def _load_config(self, cfg_name = DEFAULT_CFG_PATH):
         cfg = configparser.RawConfigParser()
         cfg.readfp(open(cfg_name)) # confirm file exists
         cfg.read(cfg_name)
