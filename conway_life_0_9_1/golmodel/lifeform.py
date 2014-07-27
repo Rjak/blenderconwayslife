@@ -62,5 +62,5 @@ class LifeForm(object):
         return ','.join(map(str, self.transitions))
 
     def __repr__(self):
-        return "LifeForm[lfid=%d,row=%d,col=%d]" % (self.lfid, self.row, \
-          self.col)
+        return "{}[lfid={},row={},col={}]".format(self.__class__.__name__, \
+          self.lfid, self.row, self.col)
