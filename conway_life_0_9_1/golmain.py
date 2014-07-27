@@ -21,6 +21,8 @@ import time
 
 from goldriver import GOLDriver
 
+"""Used only to run GOL from the command line."""
+
 def usage():
     print("usage: python %s <config file>")
     print("where:")
