@@ -192,5 +192,5 @@ class BlenderLifeForm(object):
           data_path="default_value", frame=currFrame)
         self._light_obj.keyframe_insert('scale', frame=currFrame)
 
-    def __str__(self):
-        return (str(self._lf.lfid))
+    def __repr__(self):
+        return "{}[{}]".format(self.__class__.__name__, self._lf)
