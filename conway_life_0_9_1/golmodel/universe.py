@@ -110,5 +110,5 @@ class Universe(object):
         return total
 
     def __repr__(self):
-        return "Universe[rows=%d, cols=%d, lf_count=%d]" % \
-          (self._rows, self._cols, self._lf_count)
+        return "{}[rows={}, cols={}, lf_count={}]".format( \
+          self.__class__.__name__, self._rows, self._cols, self._lf_count)
