@@ -17,11 +17,11 @@
 # ##### END GPL LICENSE BLOCK #####
 import os
 import sys
-import time
 
 from goldriver import GOLDriver
 
 """Used only to run GOL from the command line."""
+
 
 def usage():
     print("usage: python %s <config file>")
@@ -36,7 +36,7 @@ if len(sys.argv) <= 1:
 elif len(sys.argv) == 2:
     cfg_path = sys.argv[1]
     if not os.path.exists(cfg_path):
-        sys.exit("config file 's' not found" % cfg_path)
+        sys.exit("config file {} not found".format(cfg_path))
     driver = GOLDriver(cfg_path)
 else:
     usage()

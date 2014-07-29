@@ -16,81 +16,105 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 import configparser
-
-from golmodel.lifeform import LifeForm
-from golmodel.universe import Universe
+import os
+import sys
 
 from .blenderlifeform import BlenderLifeForm
 from .golrenderer import GOLRenderer
 
+
 class BlenderRenderer(GOLRenderer):
     """Renders mesh instances and keyframes to Blender"""
 
-    BLENDER_CONFIG_FILE = "%s%sblenderrenderer.cfg" % \
-      (os.path.dirname(__file__), os.sep)
+    BLENDER_CONFIG_FILE = "%s%sblenderrenderer.cfg" %\
+                          (os.path.dirname(__file__), os.sep)
 
     def __init__(self, universe):
+        """:param universe: the Conway universe object"""
         print("BLENDER RENDERER")
 
-        self.cfg = self._load_config()
+        self.cfg = self.__load_config()
 
-        self._universe = universe
-        self._curr_frame = self.cfg.getint('Time', 'StartFrame')
+        self.universe = universe
+        self.curr_frame = self.cfg.getint('Time', 'StartFrame')
 
-        self.setup()
+        self.__setup()
 
-    def _load_config(self):
+    @classmethod
+    def __load_config(cls):
+        """Load settings from the config file."""
         cfg = configparser.RawConfigParser()
-        cfg.readfp(open(self.BLENDER_CONFIG_FILE)) # confirm file exists
-        cfg.read(self.BLENDER_CONFIG_FILE)
+        cfg.read_file(open(cls.BLENDER_CONFIG_FILE))  # confirm file exists
+        cfg.read(cls.BLENDER_CONFIG_FILE)
         return cfg
 
-    def setup(self):
+    def __setup(self):
+        """Simple initialization tasks."""
         self.blender_life_forms = []
-        for lf in self._universe:
-            self.blender_life_forms.append(BlenderLifeForm(self.cfg, lf))
+        BlenderRenderer.set_origin_geometry_for_original()
+        BlenderLifeForm.set_config_values(self.cfg)
+        for lf in self.universe:
+            self.blender_life_forms.append(BlenderLifeForm(lf))
+
+    @staticmethod
+    def set_origin_geometry_for_original():
+        """Ensures that the origin for the OriginalCell object in Blender is
+        set to geometry origin.
+        """
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.data.objects['OriginalCell'].select = True
+        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
+        bpy.ops.object.select_all(action='DESELECT')
 
     def render(self, universe):
-        self._depth_first_render()
+        """Performs a render of the simulation that sets all the keyframes to
+        make a beautiful Conway animation.
 
-    def _depth_first_render(self):
+        :param universe: the Conway universe object
         """
-        Depth-first render which only lays down keyframes which a life form's
+        self.depth_first_render()
+
+    def depth_first_render(self):
+        """Depth-first render which only lays down keyframes which a life form's
         state transitions.
         """
         for blf in self.blender_life_forms:
-            self._df_render_life_form(blf)
+            BlenderRenderer.df_render_life_form(blf)
 
-    def _df_render_life_form(self, blf):
-        if (len(blf.lifeform.transitions) < 1):
-            sys.exit("INVALID: lifeform %s has no transitions" % (blf))
+    @staticmethod
+    def df_render_life_form(blf):
+        """Walks through the transition vector for the life form and sets the
+        keyframes required to render its states through the simulation.
+
+        :param blf: the BlenderLifeForm to render
+        """
+        if len(blf.lifeform.transitions) < 1:
+            sys.exit("INVALID: lifeform %s has no transitions" % blf)
         tr = blf.lifeform.transitions[0]
-        currGen = tr[0]
-        currState = tr[1]
-        blf.update_to_state(currState)
-        blf.set_keys(currGen)
-
+        curr_gen = tr[0]
+        curr_state = tr[1]
+        blf.update_to_state(curr_state)
+        blf.set_keys(curr_gen)
         first = True
 
         for tr in blf.lifeform.transitions:
-            if (first):
+            if first:
                 first = False
                 continue
-            currGen = tr[0]
-            currState = tr[1]
-            blf.set_keys(currGen - 1)
-            blf.update_to_state(currState)
-            blf.set_keys(currGen)
+            curr_gen = tr[0]
+            curr_state = tr[1]
+            blf.set_keys(curr_gen - 1)
+            blf.update_to_state(curr_state)
+            blf.set_keys(curr_gen)
 
-    def _breadth_first_render(self, universe):
-        """
-        Brute force render which lays down a keyframe for every lifeform at
+    def breadth_first_render(self):
+        """Brute force render which lays down a keyframe for every lifeform at
         every generation, which is extremely wasteful. This method is left in
         for discussion.
         """
-        print("setting simulation keys for frame: %d" % (self._curr_frame))
-        bpy.context.scene.frame_set(self._curr_frame)
+        print("setting simulation keys for frame: %d" % self.curr_frame)
+        bpy.context.scene.frame_set(self.curr_frame)
         for blf in self.blender_life_forms:
-            blf.update()
-            blf.set_keys(self._curr_frame)
-        self._curr_frame += 1
+            blf.__update()
+            blf.set_keys(self.curr_frame)
+        self.curr_frame += 1

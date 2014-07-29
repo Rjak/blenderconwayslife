@@ -15,10 +15,10 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-from golmodel.universe import Universe
+
 
 class Simulation(object):
-    """Computes the lives and deaths of lifeforms at each generation"""
+    """Computes the lives and deaths of lifeforms at each generation."""
 
     def __init__(self, universe):
         self.universe = universe
@@ -27,6 +27,9 @@ class Simulation(object):
         self.deaths = 0
 
     def advance(self):
+        """Walks the universe in a O(2n) traversal and advances to the next
+        generation.
+        """
         self.generation += 1
         self.births = 0
         self.deaths = 0
@@ -43,10 +46,14 @@ class Simulation(object):
                 if nbs == 3:
                     lf.birth(self.generation)
                     self.births += 1
-        self.commit()
+        self.__commit()
 
-    def commit(self):
-        for x in range (0, self.universe.rows):
-            for y in range (0, self.universe.cols):
+    def __commit(self):
+        """Performs a O(n) traversal which updates all LifeForms to the new
+          state which was previously computed during a simulation advancement
+          pass.
+        """
+        for x in range(0, self.universe.rows):
+            for y in range(0, self.universe.cols):
                 lf = self.universe.get_life_form(x, y)
                 lf.commit()

@@ -18,179 +18,210 @@
 import bpy
 import random
 
+
 class BlenderLifeForm(object):
+    """Wraps a standard golmodel.lifeform.LifeForm in a class that knows how to
+    visually represent a LifeForm in Blender.
+    """
 
-    # Blender requires a 20-element tuple to dictate which layers an object
-    # should be visible on
-    CELL_LAYER		= 3
+    # Blender requires a 20-element tuple of booleans to describe which layer
+    # to place objects on.
+    CELL_LAYER = 3
 
-    LIGHT_PRE		= "LightPlane_"
-    CELL_PRE		= "Cell_"
-    LIGHT_MAT_SUFF         = "_PlaneMat"
+    LIGHT_PRE = "LightPlane_"
+    CELL_PRE = "Cell_"
+    LIGHT_MAT_SUFF = "_PlaneMat"
 
-    def __init__(self, cfg, lifeForm):
-        self.cfg = cfg
+    def __init__(self, lf):
+        """:param lf: the LifeForm to wrap"""
 
-        self._set_config_values()
+        self.cell_layers = [False] * 20
+        self.cell_layers[self.CELL_LAYER] = True
+        self.emission_node = None
+        self.lf = lf
+        self.light_obj_name = "%s%d" % (self.LIGHT_PRE, self.lf.lfid)
+        self.cell_obj_name = "%s%d" % (self.CELL_PRE, self.lf.lfid)
+        self.was_alive = self.lf.is_alive()
+        self.light_mesh = None
+        self.light_obj = None
+        self.plane_mat = None
+        self.cell_obj = None
 
-        self._cell_layers = [False] * 20
-        self._cell_layers[self.CELL_LAYER] = True
-        self._emission_node = None
-        self._lf = lifeForm
-        self._light_obj_name = "%s%d" % (self.LIGHT_PRE, self._lf.lfid)
-        self._cell_obj_name = "%s%d" % (self.CELL_PRE, self._lf.lfid)
-        self._was_alive = self._lf.is_alive()
-        self._light_mesh = None
-        self._light_obj = None
-        self._plane_mat = None
-        self._cell_obj = None
+        self.__realize_plane()
+        self.__realize_cell()
+        self.__update()
 
-        self.setup()
-        self._realize_plane()
-        self._realize_cell()
-        self.update()
+    @classmethod
+    def set_config_values(cls, cfg):
+        """Pull configuration values into the object from the config file.
 
-    @property
-    def lifeform(self):
-        return self._lf
+        :param cfg: config object which carries visual settings (see README.md)
+        """
+        val = cfg.getfloat('CellLight', 'DeadSize')
+        cls.deadSizeVector = (val, val, val)
 
-    def _set_config_values(self):
-        val = self.cfg.getfloat('CellLight', 'DeadSize')
-        self.deadSizeVector = (val, val, val)
+        val = cfg.getfloat('CellLight', 'AliveSize')
+        cls.aliveSizeVector = (val, val, val)
 
-        val = self.cfg.getfloat('CellLight', 'AliveSize')
-        self.aliveSizeVector = (val, val, val)
+        cls.cellSz = cfg.getfloat('CellCage', 'CellSize')
+        cls.cellCageSz = cfg.getfloat('CellCage', 'Size')
+        cls.cellCagePad = cfg.getfloat('CellCage', 'Pad')
+        val = cfg.getfloat('CellCage', 'LightSizeCoefficient')
+        cls.cellCageLightSz = cls.cellCageSz - (val * cls.cellCagePad)
+        cls.cellXInCage = cfg.getfloat('CellCage', 'CellX')
+        cls.cellYInCage = cfg.getfloat('CellCage', 'CellY')
 
-        self.cellSz = self.cfg.getfloat('CellCage', 'CellSize')
-        self.cellCageSz = self.cfg.getfloat('CellCage', 'Size') 
-        self.cellCagePad = self.cfg.getfloat('CellCage', 'Pad') 
-        val = self.cfg.getfloat('CellCage', 'LightSizeCoefficient')
-        self.cellCageLightSz = self.cellCageSz - (val * self.cellCagePad)
-        self.cellXInCage = self.cfg.getfloat('CellCage', 'CellX')
-        self.cellYInCage = self.cfg.getfloat('CellCage', 'CellY')
+        cls.deadStrength = cfg.getfloat('CellLight', 'DeadStrength')
+        cls.deadSize = cfg.getfloat('CellLight', 'DeadSize')
+        cls.aliveStrength = cfg.getfloat('CellLight', 'AliveStrength')
+        cls.aliveSize = cfg.getfloat('CellLight', 'AliveSize')
 
-        self.deadStrength = self.cfg.getfloat('CellLight', 'DeadStrength') 
-        self.deadSize = self.cfg.getfloat('CellLight', 'DeadSize') 
-        self.aliveStrength = self.cfg.getfloat('CellLight', 'AliveStrength') 
-        self.aliveSize = self.cfg.getfloat('CellLight', 'AliveSize') 
+        cls.lightsZPlane = cfg.getfloat('MeshSetup', 'LightsZPlane')
+        cls.cellsZPlane = cfg.getfloat('MeshSetup', 'CellsZPlane')
 
-        self.lightsZPlane = self.cfg.getfloat('MeshSetup', 'LightsZPlane') 
-        self.cellsZPlane = self.cfg.getfloat('MeshSetup', 'CellsZPlane') 
-
-    def setup(self):
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.data.objects['OriginalCell'].select = True
-        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
-        bpy.ops.object.select_all(action='DESELECT')
-
-    def _realize_plane(self):
-        x = (self._lf.col * self.cellCageSz) + self.cellCagePad
-        y = (self._lf.row * self.cellCageSz) + self.cellCagePad
+    def __realize_plane(self):
+        """Creates a new plane object, positioned above the LifeForm which is
+        emissive and serve to light the LifeForm.
+        """
+        x = (self.lf.col * self.cellCageSz) + self.cellCagePad
+        y = (self.lf.row * self.cellCageSz) + self.cellCagePad
         z = self.lightsZPlane
         vert0 = (x, y, z)
         vert1 = (x, y + self.cellCageLightSz, z)
         vert2 = (x + self.cellCageLightSz, y + self.cellCageLightSz, z)
-        vert3 = (x + self.cellCageLightSz, y , z)
+        vert3 = (x + self.cellCageLightSz, y, z)
         verts = [vert0, vert1, vert2, vert3] 
         faces = [(0, 1, 2, 3)]
 
-        self._light_mesh = bpy.data.meshes.new("Plane")
-        self._light_obj = bpy.data.objects.new(self._light_obj_name, \
-          self._light_mesh)
-        bpy.context.scene.objects.link(self._light_obj)
-        self._light_mesh.from_pydata(verts, [], faces)
-        self._light_mesh.update(calc_edges=True)
-        name = "%d%s" % (self._lf.lfid, self.LIGHT_MAT_SUFF)
-        self._init_plane_material(name)
-        self._light_obj.data.materials.append(self._plane_mat)
-        self._light_obj.cycles_visibility.camera = False
-        self._select_light_object()
+        self.light_mesh = bpy.data.meshes.new("Plane")
+        self.light_obj = bpy.data.objects.new(self.light_obj_name,
+                                              self.light_mesh)
+        bpy.context.scene.objects.link(self.light_obj)
+        self.light_mesh.from_pydata(verts, [], faces)
+        self.light_mesh.__update(calc_edges=True)
+        name = "%d%s" % (self.lf.lfid, self.LIGHT_MAT_SUFF)
+        self.__init_plane_material(name)
+        self.light_obj.data.materials.append(self.plane_mat)
+        self.light_obj.cycles_visibility.camera = False
+        self.__select_light_object()
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
         bpy.ops.object.select_all(action='DESELECT')
 
-    def _realize_cell(self):
-        x = self._lf.col * self.cellCageSz
-        y = self._lf.row * self.cellCageSz
+    def __realize_cell(self):
+        """Creates a new instance of the OriginalCell at the correct position
+        in 3-space.
+        """
+        x = self.lf.col * self.cellCageSz
+        y = self.lf.row * self.cellCageSz
         z = self.cellsZPlane
         loc = (x + self.cellXInCage, y + self.cellYInCage, z)
-        rot = (random.randrange(0, 359), random.randrange(0, 359), \
-          random.randrange(0, 359))
-        rotaxis = (random.randrange(0, 1), random.randrange(0, 1), \
-          random.randrange(0, 1))
-        rotamt = random.randrange(0, 359)
+        rot = (random.randrange(0, 359), random.randrange(0, 359),
+               random.randrange(0, 359))
 
         bpy.ops.object.select_all(action='DESELECT')
         bpy.data.objects['OriginalCell'].select = True
         bpy.ops.object.select_grouped(type='CHILDREN_RECURSIVE')
         bpy.data.objects['OriginalCell'].select = True
-        self._cell_obj = self._duplicate_cell(self._cell_obj_name, \
-          bpy.context.object)
-        bpy.context.scene.objects.link(self._cell_obj)
-        self._cell_obj.location = loc
-        self._cell_obj.delta_rotation_euler = rot
-        self._cell_obj.layers = self._cell_layers
+        self.cell_obj = self.__duplicate_cell(self.cell_obj_name,
+                                              bpy.context.object)
+        bpy.context.scene.objects.link(self.cell_obj)
+        self.cell_obj.location = loc
+        self.cell_obj.delta_rotation_euler = rot
+        self.cell_obj.layers = self.cell_layers
 
-    def _duplicate_cell(self, name, copyobj):
+    @staticmethod
+    def __duplicate_cell(name, object_to_copy):
+        """Performs the actual work of creating a new instance of the given
+        object.
+
+        :param name: the name to assign to the new instance
+        :param object_to_copy: the object to copy
+        """
         mesh = bpy.data.meshes.new(name)
-        obNew = bpy.data.objects.new(name, mesh)
-        obNew.data = copyobj.data.copy()
-        obNew.scale = copyobj.scale
-        obNew.location = copyobj.location
-        return (obNew)
+        ob_new = bpy.data.objects.new(name, mesh)
+        ob_new.data = object_to_copy.data.copy()
+        ob_new.scale = object_to_copy.scale
+        ob_new.location = object_to_copy.location
+        return ob_new
 
-    def _realize_sphere(self):
-        x = self._lf.col * self.cellCageSz
-        y = self._lf.row * self.cellCageSz
+    def __realize_sphere(self):
+        """Can replace __duplicate_cell() to simply create spheres for LifeForms
+        rather than mesh instances.
+        """
+        x = self.lf.col * self.cellCageSz
+        y = self.lf.row * self.cellCageSz
         z = self.cellsZPlane
         loc = (x + self.cellXInCage, y + self.cellXInCage, z)
-        bpy.ops.mesh.primitive_uv_sphere_add(size = self.cellSz / 2, \
-          location=loc)
+        bpy.ops.mesh.primitive_uv_sphere_add(size=self.cellSz / 2, location=loc)
 
-    def _init_plane_material(self, name):
-        self._plane_mat = bpy.data.materials.new(name)
-        self._plane_mat.use_nodes = True
-        surf_node = self._plane_mat.node_tree.nodes[0]
-        self._emission_node = self._plane_mat.node_tree.nodes.new( \
-          "ShaderNodeEmission")
-        self._emission_node.inputs['Color'].default_value = (1.0, 1.0, 1.0, 1.0)
-        self._emission_node.inputs['Strength'].default_value = \
-          self.deadStrength
-        outputSocket = self._emission_node.outputs["Emission"]
-        inputSocket = surf_node.inputs["Surface"]
-        self._plane_mat.node_tree.links.new(outputSocket, inputSocket)
+    def __init_plane_material(self, name):
+        """Initializes the emissive plane material which serves to light the
+        LifeForm.
+        """
+        self.plane_mat = bpy.data.materials.new(name)
+        self.plane_mat.use_nodes = True
+        surf_node = self.plane_mat.node_tree.nodes[0]
+        self.emission_node = self.plane_mat.node_tree.nodes.new(
+            "ShaderNodeEmission")
+        self.emission_node.inputs['Color'].default_value = (1.0, 1.0, 1.0, 1.0)
+        self.emission_node.inputs['Strength'].default_value = self.deadStrength
+        output_socket = self.emission_node.outputs["Emission"]
+        input_socket = surf_node.inputs["Surface"]
+        self.plane_mat.node_tree.links.new(output_socket, input_socket)
 
-    def _select_light_object(self):
-        bpy.ops.object.select_all(action = 'DESELECT')
-        bpy.ops.object.select_pattern(pattern = self._light_obj_name)
+    def __select_light_object(self):
+        """Selects the plane which serves to light the LifeForm."""
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.ops.object.select_pattern(pattern=self.light_obj_name)
 
-    def _set_alive(self):
-        self._set_strength(self.aliveStrength)
-        self._light_obj.scale = self.aliveSizeVector
+    def __set_alive(self):
+        """Sets values which visually indicate the LifeForm has been birthed."""
+        self.__set_strength(self.aliveStrength)
+        self.light_obj.scale = self.aliveSizeVector
 
-    def _set_dead(self):
-        self._set_strength(self.deadStrength)
-        self._light_obj.scale = self.deadSizeVector
+    def __set_dead(self):
+        """Sets values which visually indicate the LifeForm has died."""
+        self.__set_strength(self.deadStrength)
+        self.light_obj.scale = self.deadSizeVector
 
-    def _set_strength(self, strength):
-        self._emission_node.inputs['Strength'].default_value = strength
+    def __set_strength(self, strength):
+        """Logically encapsulates the notion of setting a light strength.
+
+        :param strength: a normalized floating point value indicating the
+          strength of the light
+        """
+        self.emission_node.inputs['Strength'].default_value = strength
 
     def update_to_state(self, state):
-        if (state == self._lf.STATE_ALIVE):
-            self._set_alive()
-        elif (state == self._lf.STATE_DEAD):
-            self._set_dead()
+        """Visually updates the LifeForm to be either alive or dead.
 
-    def update(self):
-        if (self._lf.is_alive()):
-            self._set_alive()
+        :param state: one of golmodel.lifeform.LifeForm.STATE_ALIVE or
+          golmodel.lifeform.LifeForm.STATE_DEAD
+        """
+        if state == self.lf.STATE_ALIVE:
+            self.__set_alive()
+        elif state == self.lf.STATE_DEAD:
+            self.__set_dead()
+
+    def __update(self):
+        """Updates internal flags which allow us to determine whether the state
+        of the LifeForm has changed since the previous generation.
+        """
+        if self.lf.is_alive():
+            self.__set_alive()
         else:
-            self._set_dead()
-        self._was_alive = self._lf.is_alive()
+            self.__set_dead()
+        self.was_alive = self.lf.is_alive()
 
-    def set_keys(self, currFrame):
-        self._emission_node.inputs['Strength'].keyframe_insert( \
-          data_path="default_value", frame=currFrame)
-        self._light_obj.keyframe_insert('scale', frame=currFrame)
+    def set_keys(self, curr_frame):
+        """Adds all keyframes required to visually present the correct state of
+        the LifeForm at the given keyframe.
+
+        :param curr_frame: the frame at which to set the keyframes
+        """
+        self.emission_node.inputs['Strength'].\
+            keyframe_insert(data_path="default_value", frame=curr_frame)
+        self.light_obj.keyframe_insert('scale', frame=curr_frame)
 
     def __repr__(self):
-        return "{}[{}]".format(self.__class__.__name__, self._lf)
+        return "{}[{}]".format(self.__class__.__name__, self.lf)

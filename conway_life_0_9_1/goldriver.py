@@ -29,32 +29,47 @@ from golview.consolerenderer import ConsoleRenderer
 from golcontrol.simulation import Simulation
 from golmodel.universe import Universe
 
+
 class GOLDriver(object):
     """Main driver class that sets up a Game Of Life simulation"""
 
     DEFAULT_CFG_PATH = "%s%sgolconfig.cfg" % (os.path.dirname(__file__), os.sep)
     FRAME_DELAY = 0.0417    # for 24fps
 
-    def __init__(self, cfg_name = DEFAULT_CFG_PATH):
-        self._cfg = self._load_config(cfg_name)
-        self._preinit()
+    def __init__(self, cfg_path=DEFAULT_CFG_PATH):
+        """:param cfg_path: the path to a config file that specifies all the
+          simulation settings
+        """
+        self._cfg = GOLDriver.load_config(cfg_path)
+        self.__preinit()
         self._generation_count = self._cfg.getint('Universe', 'GenerationCount')
         val = self._cfg.getint('Universe', 'Size')
         self._universe = Universe(val, val)
         self._sim = Simulation(self._universe)
-        self._renderer = self._create_renderer() 
+        self._renderer = self.create_renderer()
 
-    def _preinit(self):
+    def __preinit(self):
+        """Initialization tasks which *must* be performed before anything else.
+        """
         if self._cfg.has_option('Universe', 'RandomSeed'):
             random.seed(self._cfg.get('Universe', 'RandomSeed'))
 
-    def _load_config(self, cfg_name = DEFAULT_CFG_PATH):
+    @staticmethod
+    def load_config(cfg_path=DEFAULT_CFG_PATH):
+        """Loads the config file at the specified path.
+
+        :param cfg_path: complete path to a config file containing all the
+          settings for the simulation
+        """
         cfg = configparser.RawConfigParser()
-        cfg.readfp(open(cfg_name)) # confirm file exists
-        cfg.read(cfg_name)
+        cfg.read_file(open(cfg_path))  # confirm file exists
+        cfg.read(cfg_path)
         return cfg
 
-    def _create_renderer(self):
+    def create_renderer(self):
+        """Factory method which instantiates the correct renderer specified
+        by the config file.
+        """
         rtype = self._cfg.get('Rendering', 'Renderer')
         if rtype == "console":
             return ConsoleRenderer()
@@ -63,17 +78,14 @@ class GOLDriver(object):
         else:
             raise Exception("unsupported renderer '%r'" % rtype)
 
-    def _sim_loop(self):
-        old_births = 0
-        old_deaths = 0
+    def sim_loop(self):
+        """Runs the simulation."""
         frame_delay = self._renderer.get_frame_delay()
 
-        for i in range (0, self._generation_count):
+        for i in range(0, self._generation_count):
             self._sim.advance()
-            print("\ngeneration %d  -  births: %d  -  deaths: %d" % \
-              (i, self._sim.births, self._sim.deaths))
-            old_births = self._sim.births
-            old_deaths = self._sim.deaths
+            print("\ngeneration %d  -  births: %d  -  deaths: %d" %
+                  (i, self._sim.births, self._sim.deaths))
             self._renderer.render(self._universe)
             if frame_delay > 0.0:
                 time.sleep(frame_delay)
@@ -82,7 +94,8 @@ class GOLDriver(object):
         print("total transitions: ", cnt)
 
     def go(self):
+        """Performs all setup and then runs the simulation"""
         self._universe.randomize()
         self._renderer.render(self._universe)
         time.sleep(self._cfg.getint('Rendering', 'PauseAfterRandomize'))
-        self._sim_loop()
+        self.sim_loop()

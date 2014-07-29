@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 import abc
 
+
 class GOLRenderer(object):
     """Game of Life Renderer Base Class"""
 
@@ -26,4 +27,7 @@ class GOLRenderer(object):
         raise NotImplementedError
     
     def get_frame_delay(self):
+        """Optional simulation delay to prevent the simulation from running too
+        fast to be visible.
+        """
         return 0

@@ -16,13 +16,18 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-class LifeForm(object):
-    """Lifeform model object for Life simulation."""
 
-    def __init__(self, lfid = 0, row = 0, col = 0):
-        self.STATE_NONE		= -1
-        self.STATE_DEAD		= 0
-        self.STATE_ALIVE	= 1
+class LifeForm(object):
+    """Life form model object for Life simulation."""
+
+    def __init__(self, lfid=0, row=0, col=0):
+        """:param lfid: unique life form indentifier
+        :param row: row at which the life form exists
+        :param col: column at which the life form exists
+        """
+        self.STATE_NONE = -1
+        self.STATE_DEAD = 0
+        self.STATE_ALIVE = 1
 
         self.transitions = []
         self.state = self.STATE_NONE
@@ -32,19 +37,25 @@ class LifeForm(object):
         self.col = col
 
     def is_alive(self):
-        """Returns true if the LifeForm is alive, false otherwise."""
+        """:returns: true if the LifeForm is alive, false otherwise."""
         if self.state == self.STATE_ALIVE:
             return True
         return False
 
     def kill(self, generation):
-        """Marks this LifeForm to transition to dead on next commit."""
+        """Marks this LifeForm to transition to dead in next generation.
+
+        :param generation: current generation (used to record transition vector)
+        """
         self.nextState = self.STATE_DEAD
         if self.state != self.nextState:
             self.transitions.append((generation, self.nextState))
 
     def birth(self, generation):
-        """Marks this LifeForm to transition to alive on next commit."""
+        """Marks this LifeForm to transition to alive on next commit.
+
+        :param generation: current generation (used to record transition vector)
+        """
         self.nextState = self.STATE_ALIVE
         if self.state != self.nextState:
             self.transitions.append((generation, self.nextState))
@@ -56,11 +67,15 @@ class LifeForm(object):
         self.state = self.nextState
 
     def get_transition_count(self):
+        """:return: a count of every dead/alive state transition recorded"""
         return len(self.transitions)
 
     def transitions_to_string(self):
+        """:return: a logging-suitable string describing the transitions
+          recorded so far
+        """
         return ','.join(map(str, self.transitions))
 
     def __repr__(self):
-        return "{}[lfid={},row={},col={}]".format(self.__class__.__name__, \
-          self.lfid, self.row, self.col)
+        return "{}[lfid={},row={},col={}]".format(self.__class__.__name__,
+                                                  self.lfid, self.row, self.col)

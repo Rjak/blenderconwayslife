@@ -15,15 +15,14 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-from golmodel.lifeform import LifeForm
-from golmodel.universe import Universe
 
 from .golrenderer import GOLRenderer
+
 
 class ConsoleRenderer(GOLRenderer):
     """Renders the simulation to stdout"""
 
-    FRAME_DELAY = 0.0417 # for 24fps
+    FRAME_DELAY = 0.0417  # for 24fps
     ALIVE_CHAR = "*"
     DEAD_CHAR = " "
 
@@ -31,9 +30,13 @@ class ConsoleRenderer(GOLRenderer):
         print("CONSOLE RENDERER")
 
     def render(self, universe):
-        for x in range (0, universe.rows):
+        """Renders the simulation to the console.
+
+        :param universe: the Conway universe object
+        """
+        for x in range(0, universe.rows):
             row = ""
-            for y in range (0, universe.cols):
+            for y in range(0, universe.cols):
                 lf = universe.get_life_form(x, y)
                 if lf.state == lf.STATE_ALIVE:
                     row += self.ALIVE_CHAR
@@ -43,4 +46,7 @@ class ConsoleRenderer(GOLRenderer):
             print(row)
     
     def get_frame_delay(self):
+        """Override the simulation delay so that it does not go by so fast that
+        it cannot be observed.
+        """
         return self.FRAME_DELAY
