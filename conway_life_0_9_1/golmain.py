@@ -15,30 +15,35 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
+
+"""Run GOL from the command line."""
+
+import argparse
 import os
 import sys
 
 from goldriver import GOLDriver
 
-"""Used only to run GOL from the command line."""
+
+DEFAULT_CONFIG_PATH = './golconfig.cfg'
 
 
-def usage():
-    print("usage: python %s <config file>")
-    print("where:")
-    print("\tconfig file - optional config file (defaults to golconfig.cfg)")
-    sys.exit("invalid arguments")
+def parse_args():
+    parser = argparse.ArgumentParser()
+    help_msg = f"optional config file path (defaults to {DEFAULT_CONFIG_PATH})"
+    parser.add_argument("--config", help=help_msg, default=DEFAULT_CONFIG_PATH)
+    return parser.parse_args()
 
-driver = None
 
-if len(sys.argv) <= 1:
-    driver = GOLDriver()
-elif len(sys.argv) == 2:
-    cfg_path = sys.argv[1]
+def main(parsed_args):
+    cfg_path = parsed_args.config
     if not os.path.exists(cfg_path):
-        sys.exit("config file {} not found".format(cfg_path))
-    driver = GOLDriver(cfg_path)
-else:
-    usage()
+        sys.exit(f"config file {cfg_path} not found")
 
-driver.go()
+    driver = GOLDriver(cfg_path)
+    driver.go()
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    main(args)
